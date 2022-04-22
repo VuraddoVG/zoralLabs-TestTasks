@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Google Calendar API</title>
+    <meta charset="utf-8" />
+</head>
+
+<body>
+    <p>Google Calendar API</p>
+    <div id="calendar" style="display: none;">
+        <input id="calendar_id" type="text" placeholder="calendar id" />
+        <input id="calendar_start" type="date" placeholder="calendar start" />
+        <input id="calendar_end" type="date" placeholder="calendar end" />
+        <button id="check_calendar_button">Check calendar</button>
+    </div>
+    <button id="authorize_button" style="display: none;">Authorize</button>
+    <button id="signout_button" style="display: none;">Sign Out</button>
+
+    <pre id="content" style="white-space: pre-wrap;"></pre>
+
+    <script type="text/javascript">
+        var CLIENT_ID = '851126407617-qv1bkmje6skr200p4s4lec2nlq9a8upl.apps.googleusercontent.com';
+        var API_KEY = 'AIzaSyBBnHt-AwnodcripXeswtNF2Bw6KJlr42o';
+        var DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
+        var SCOPES = "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar";
+
+        var authorizeButton = document.getElementById('authorize_button');
+        var signoutButton = document.getElementById('signout_button');
+        var calendarDiv = document.getElementById('calendar');
+        var checkCalendarButton = document.getElementById('check_calendar_button');
+        var calendarId = document.getElementById('calendar_id');
+        var calendarStart = document.getElementById('calendar_start');
+        var calendarEnd = document.getElementById('calendar_end');
+
+        function handleClientLoad() {
+            gapi.load('client:auth2', initClient);
+        }
+
+        function initClient() {
+            gapi.client.init({
+                apiKey: API_KEY,
+                clientId: CLIENT_ID,
+                discoveryDocs: DISCOVERY_DOCS,
+                scope: SCOPES
+            }).then(function () {
+                gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+
+                updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
+                authorizeButton.onclick = handleAuthClick;
+                signoutButton.onclick = handleSignoutClick;
+                checkCalendarButton.onclick = handleCheckCalendar;
+            }, function (error) {
+                appendPre(JSON.stringify(error, null, 2));
+            });
+        }
+
+        function updateSigninStatus(isSignedIn) {
+            if (isSignedIn) {
+                authorizeButton.style.display = 'none';
+                signoutButton.style.display = 'block';
+                calendar.style.display = 'inline';
+            } else {
+                authorizeButton.style.display = 'block';
+                signoutButton.style.display = 'none';
+                calendar.style.display = 'none';
+            }
+        }
+
+        function handleAuthClick(event) {
+            gapi.auth2.getAuthInstance().signIn();
+        }
+
+        function handleSignoutClick(event) {
+            gapi.auth2.getAuthInstance().signOut();
+        }
+
+        function handleCheckCalendar(event) {
+            getFreeBusy(new Date(calendarStart.value), new Date(calendarEnd.value), calendarId.value);
+        }
+
+        function appendPre(message) {
+            var pre = document.getElementById('content');
+            var textContent = document.createTextNode(message + '\n');
+            pre.appendChild(textContent);
+        }
+
+        function getFreeBusy(dateStart, dateEnd, calID) {
+            console.log('date Time Range :' + dateStart.toISOString() + ' --->' + dateEnd.toISOString());
+            console.log('calendar id to check freebusy:' + calID);
+            gapi.client.calendar.freebusy.query({
+                'timeMin': dateStart.toISOString(),
+                'timeMax': dateEnd.toISOString(),
+                'items': [{ 'id': calID }],
+            }).then(function (response, err) {
+                console.log('Response from the Calendar service: ' + JSON.stringify(response));
+                if (err) {
+                    console.log('There was an error contacting the Calendar service: ' + JSON.stringify(err));
+                    return;
+                }
+                var events = response.result.calendars[calID].busy;
+                console.log(events)
+                if (events.length > 0) {
+                    console.log('busy in here...');
+                    for (let i = 0; i < events.length; i++) {
+                        var event = events[i];
+                        appendPre(' (' + event.start + '-' + event.end + ')')
+                    }
+                } else {
+                    return console.log('No upcoming events found.');
+                }
+            })
+        }
+    </script>
+
+    <script async defer src="https://apis.google.com/js/api.js" onload="this.onload=function(){};handleClientLoad()"
+        onreadystatechange="if (this.readyState === 'complete') this.onload()">
+        </script>
+</body>
+
+</html>
